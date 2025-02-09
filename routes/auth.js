@@ -40,28 +40,32 @@ const registerValidator = (data) => {
 };
 
 // 用户注册接口
+// 用户注册接口
 authRouter.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
     const { isValid, errors } = registerValidator(req.body);
 
-    // 1. **输入验证失败**
+    // 输入验证失败
     if (!isValid) {
-      return res.status(400).json({ errors });
-    }
-
-    // 2. **检查用户名或邮箱是否已被注册**
-    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
-    if (existingUser) {
       return res.status(400).json({
-        errors: { msg: "用户名或邮箱已被注册" },
+        status: "error",
+        message: "输入验证失败"
       });
     }
 
-    // 3. **加密密码**
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 检查用户名或邮箱是否已被注册
+    const existingUser = await User.findOne({ $or: [{ username }, { email }] });
+    if (existingUser) {
+      return res.status(409).json({
+        status: "error",
+        message: "用户名或邮箱已被注册"
+      });
+    }
 
-    // 4. **创建新用户**
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(password, 10);
+    // 创建新用户
     const newUser = new User({
       username,
       email,
@@ -73,63 +77,74 @@ authRouter.post("/register", async (req, res) => {
       preferences: {},
       phone: "",
     });
-
-    await newUser.save(); // **保存到数据库**
-
-
-    // 5. **返回响应**
+    await newUser.save(); // 保存到数据库
+    // 返回响应
     res.status(201).json({
-      msg: "注册成功！",
+      status: "success",
+      message: "注册成功！请重新登录"
     });
   } catch (error) {
-    console.error("注册失败:", error);
-    res.status(500).json({ msg: "服务器错误，请稍后再试" });
+    res.status(500).json({
+      status: "error",
+      message: "服务器错误，请稍后再试",
+    });
   }
 });
 
-//登录
+// 登录
 authRouter.post("/login", async (req, res) => {
   try {
-      const { username, password } = req.body;
-      console.log(req.body)
-    // 1. **输入验证**
+    const { username, password } = req.body;
+
+    // 输入验证
     if (validator.isEmpty(username || "") || validator.isEmpty(password || "")) {
-      return res.status(400).json({ errors: { msg: "用户名和密码不能为空" } });
+      return res.status(400).json({
+        status: "error",
+        message:"用户名和密码不能为空" 
+      });
     }
 
-    // 2. **查找用户**
+    // 查找用户
     const user = await User.findOne({ username });
     if (!user) {
-      return res.status(400).json({ errors: { msg: "用户不存在" } });
-      }
-      console.log(user.username)
-console.log(password,user.password)
-    // 3. **验证密码**
-      const isMatch = await bcrypt.compare(password, user.password);
+      return res.status(404).json({
+        status: "error",
+        message: "用户不存在"
+      });
+    }
+    // 验证密码
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ errors: { msg: "密码错误" } });
+      return res.status(401).json({
+        status: "error",
+        message: "密码错误",
+      });
     }
 
-    // 4. **生成 JWT 令牌**
+    // 生成 JWT 令牌
     const token = jwt.sign(
       { id: user._id, username: user.username },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // 5. **返回响应**
+    // 返回响应
     res.status(200).json({
-      msg: "登录成功！",
+      status: "success",
+      message: "登录成功！",
       user: {
         id: user._id,
         username: user.username,
-        email: user.email,  // 你仍然可以返回 email，但用 username 登录
-        token,
+        email: user.email,
+        token
       }
     });
   } catch (error) {
-    console.error("登录失败:", error);
-    res.status(500).json({ msg: "服务器错误，请稍后再试" });
+    res.status(500).json({
+      status: "error",
+      message: "服务器错误，请稍后再试",
+    });
   }
 });
+
 module.exports = authRouter;

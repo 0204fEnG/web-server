@@ -45,14 +45,6 @@ const user = new Schema({
 }, {
   timestamps: true
 });
-// 使用中间件在保存用户之前加密密码
-user.pre('save', async function(next) {
-  if (this.isModified('password') || this.isNew) {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-  }
-  next();
-});
 
 const userModel = mongoose.model("users", user);
 module.exports = userModel
