@@ -24,7 +24,7 @@ app.use('/api/user',userRouter );
 
 // 设置监听端口
 const PORT=process.env.PORT||3200
-app.listen(3001, () => {
+app.listen(PORT, () => {
   console.log(`服务器运行在${PORT}端口`);
 });
 
