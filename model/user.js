@@ -17,23 +17,30 @@ const user = new Schema({
     required: true,
     unique: true
   },
-  roles: [{
-    type: String
-  }],
+  roles: {
+    type: [String],
+    default:['user']
+  },
   status: {
     type: String,
     enum: ['active', 'inactive', 'disabled'],
     default: 'inactive'
   },
   avatar: {
-    type: String
+    type: String,
+    default:''
   },
   bio: {
-    type: String
+    type: String,
+    default:''
   },
-  preferences: Schema.Types.Mixed,
+  preferences: {
+    type:Schema.Types.Mixed,
+    default:{}
+  },
   phone: {
-    type: String
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true
@@ -46,14 +53,6 @@ user.pre('save', async function(next) {
   }
   next();
 });
-
-// // 添加一个方法来比较密码
-// user.methods.comparePassword = function(candidatePassword, callback) {
-//   bcrypt.compare(candidatePassword, this.password, (err, isMatch) => {
-//     if (err) return callback(err);
-//     callback(null, isMatch);
-//   });
-// };
 
 const userModel = mongoose.model("users", user);
 module.exports = userModel
