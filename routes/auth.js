@@ -75,7 +75,7 @@ authRouter.post("/register", async (req, res) => {
       status: "active",
       avatar: "",
       bio: "",
-      preferences: {},
+      preferences: "",
       phone: "",
     });
     await newUser.save(); // 保存到数据库
@@ -128,7 +128,8 @@ authRouter.post("/login", async (req, res) => {
       JWT_SECRET,
       { expiresIn: "7d" }
     );
-
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const avatarUrl = user.avatar && `${baseUrl}${user.avatar}`
     // 返回响应
     res.status(200).json({
       status: "success",
@@ -137,8 +138,12 @@ authRouter.post("/login", async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
-        token
-      }
+        avatar: avatarUrl,
+        bio: user.bio,
+        preferences: user.preferences,
+        phone: user.phone,
+      },
+      token
     });
   } catch (error) {
     res.status(500).json({
@@ -155,7 +160,18 @@ authRouter.get("/auto-login", authMiddleware, async (req, res) => {
     if (!user) {
       return res.status(404).json({ status: "error", message: "用户不存在" });
     }
-    res.status(200).json({ status: "success", user });
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const avatarUrl = user.avatar && `${baseUrl}${user.avatar}`
+    res.status(200).json({
+      status: "success", message: "登录成功", user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        avatar: avatarUrl,
+        bio: user.bio,
+        preferences: user.preferences,
+        phone: user.phone,
+    }});
   } catch (error) {
     res.status(500).json({ status: "error", message: "服务器错误，请稍后再试" });
   }

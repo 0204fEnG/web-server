@@ -3,10 +3,12 @@ const bodyParser = require('body-parser'); // 用于解析请求体
 const app = express(); // 创建 Express 应用实例
 const userRouter = require('./routes/user')
 const authRouter = require('./routes/auth')
+const path = require("path");
 const cors = require('cors')
 require("dotenv").config();
 // 中间件配置
-
+// 允许访问 public 目录下的所有静态文件
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 app.use(cors())
 app.use(bodyParser.json()); // 用于解析 application/json
 app.use(bodyParser.urlencoded({ extended: true })); // 用于解析 application/x-www-form-urlencoded
