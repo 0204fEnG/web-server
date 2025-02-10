@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../model/user");
 const validator = require("validator");
 const isEmpty = require("lodash/isEmpty");
+const authMiddleware = require("../middleware/authMiddleware"); // 认证中间件
 
 require("dotenv").config();
 
@@ -147,4 +148,16 @@ authRouter.post("/login", async (req, res) => {
   }
 });
 
+//自动登录接口
+authRouter.get("/auto-login", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password"); // 不返回密码
+    if (!user) {
+      return res.status(404).json({ status: "error", message: "用户不存在" });
+    }
+    res.status(200).json({ status: "success", user });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: "服务器错误，请稍后再试" });
+  }
+});
 module.exports = authRouter;
