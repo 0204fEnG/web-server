@@ -87,7 +87,7 @@ authRouter.post("/register", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: "服务器错误，请稍后再试",
+      message: "服务器错误，请稍后再试"
     });
   }
 });
