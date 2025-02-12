@@ -93,6 +93,7 @@ authRouter.post("/register", async (req, res) => {
 });
 
 // 登录
+// 登录
 authRouter.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -101,7 +102,7 @@ authRouter.post("/login", async (req, res) => {
     if (validator.isEmpty(username || "") || validator.isEmpty(password || "")) {
       return res.status(400).json({
         status: "error",
-        message:"用户名和密码不能为空" 
+        message: "用户名和密码不能为空",
       });
     }
 
@@ -110,9 +111,10 @@ authRouter.post("/login", async (req, res) => {
     if (!user) {
       return res.status(404).json({
         status: "error",
-        message: "用户不存在"
+        message: "用户不存在",
       });
     }
+
     // 验证密码
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -122,14 +124,24 @@ authRouter.post("/login", async (req, res) => {
       });
     }
 
-    // 生成 JWT 令牌
+    // 生成短时 Access Token（有效期 15 分钟）
     const token = jwt.sign(
-      { id: user._id, username: user.username },
+      { id: user._id, username: user.username }, // 包含用户信息
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "15s" }
     );
+
+    // 生成长期 Refresh Token（有效期 7 天）
+    const refreshToken = jwt.sign(
+      { id: user._id, username: user.username }, // 包含用户信息
+      JWT_SECRET,
+      { expiresIn: "30s" }
+    );
+
+    // 生成用户头像 URL（如果存在）
     const baseUrl = `${req.protocol}://${req.get("host")}`;
-    const avatarUrl = user.avatar && `${baseUrl}${user.avatar}`
+    const avatarUrl = user.avatar && `${baseUrl}${user.avatar}`;
+
     // 返回响应
     res.status(200).json({
       status: "success",
@@ -143,7 +155,8 @@ authRouter.post("/login", async (req, res) => {
         preferences: user.preferences,
         phone: user.phone,
       },
-      token
+      token,  // 短时 Token
+      refreshToken, // 长期 Refresh Token
     });
   } catch (error) {
     res.status(500).json({
@@ -152,6 +165,7 @@ authRouter.post("/login", async (req, res) => {
     });
   }
 });
+
 
 //自动登录接口
 authRouter.get("/auto-login", authMiddleware, async (req, res) => {
@@ -174,6 +188,45 @@ authRouter.get("/auto-login", authMiddleware, async (req, res) => {
     }});
   } catch (error) {
     res.status(500).json({ status: "error", message: "服务器错误，请稍后再试" });
+  }
+});
+
+// 刷新 Token
+authRouter.get("/refresh-token", authMiddleware, async (req, res) => {
+  try {
+    // 验证用户是否存在
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ status: "error", message: "用户不存在" });
+    }
+
+    // 生成新的短时 Token
+    const newAccessToken = jwt.sign(
+      { id: user._id, username: user.username }, // 包含用户信息
+      JWT_SECRET,
+      { expiresIn: "15s" } // 短时 Token 有效期
+    );
+
+    // 返回新的 Token
+    res.status(200).json({
+      status: 'success',
+      message:'授权成功',
+      token: newAccessToken,
+    });
+  } catch (error) {
+    res.status(401).json({ status: 'error', message: "身份信息过期,请重新登陆" });
+  }
+});
+
+authRouter.get("/test", authMiddleware, async (req, res) => {
+  try {
+    // 返回新的 Token
+    res.status(200).json({
+      status: 'success',
+      message:'受保护接口调用成功!'
+    });
+  } catch (error) {
+    res.status(401).json({ status: 'error', message: "受保护接口调用失败" });
   }
 });
 module.exports = authRouter;
