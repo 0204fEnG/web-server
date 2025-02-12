@@ -128,14 +128,14 @@ authRouter.post("/login", async (req, res) => {
     const token = jwt.sign(
       { id: user._id, username: user.username }, // 包含用户信息
       JWT_SECRET,
-      { expiresIn: "15s" }
+      { expiresIn: "30m" }
     );
 
     // 生成长期 Refresh Token（有效期 7 天）
     const refreshToken = jwt.sign(
       { id: user._id, username: user.username }, // 包含用户信息
       JWT_SECRET,
-      { expiresIn: "30s" }
+      { expiresIn: "7d" }
     );
 
     // 生成用户头像 URL（如果存在）
@@ -204,7 +204,7 @@ authRouter.get("/refresh-token", authMiddleware, async (req, res) => {
     const newAccessToken = jwt.sign(
       { id: user._id, username: user.username }, // 包含用户信息
       JWT_SECRET,
-      { expiresIn: "15s" } // 短时 Token 有效期
+      { expiresIn: "30m" } // 短时 Token 有效期
     );
 
     // 返回新的 Token
