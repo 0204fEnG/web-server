@@ -3,7 +3,8 @@ const bodyParser = require('body-parser'); // 用于解析请求体
 const app = express(); // 创建 Express 应用实例
 const userRouter = require('./routes/user')
 const authRouter = require('./routes/auth')
-const shortsRouter = require('./routes/shorts')
+const shortRouter = require('./routes/short')
+const circleRouter=require('./routes/circle')
 const path = require("path");
 const cors = require('cors')
 app.use((req, res, next) => {
@@ -24,7 +25,8 @@ app.use('/api/auth', authRouter)
 // app.use('/api/home', require('./routes/home'));
 // app.use('/api/short', require('./routes/circles'));
 // app.use('/api/circle', require('./routes/shorts'));
-app.use('/api/user',userRouter );
+app.use('/api/user',userRouter);
+app.use('/api/circle',circleRouter);
 // app.use('/api/shorts',shortsRouter );
 
 // // 错误处理中间件
