@@ -4,7 +4,8 @@ const app = express(); // 创建 Express 应用实例
 const userRouter = require('./routes/user')
 const authRouter = require('./routes/auth')
 const shortRouter = require('./routes/short')
-const circleRouter=require('./routes/circle')
+const circleRouter = require('./routes/circle')
+const postRouter=require('./routes/post')
 const path = require("path");
 const cors = require('cors')
 app.use((req, res, next) => {
@@ -21,12 +22,13 @@ app.use(cors())
 app.use(bodyParser.json()); // 用于解析 application/json
 app.use(bodyParser.urlencoded({ extended: true })); // 用于解析 application/x-www-form-urlencoded
 app.use('/api/auth', authRouter)
+app.use('/api/post',postRouter)
 // // 路由配置
 // app.use('/api/home', require('./routes/home'));
 // app.use('/api/short', require('./routes/circles'));
-// app.use('/api/circle', require('./routes/shorts'));
 app.use('/api/user',userRouter);
-app.use('/api/circle',circleRouter);
+app.use('/api/circle', circleRouter);
+
 // app.use('/api/shorts',shortsRouter );
 
 // // 错误处理中间件

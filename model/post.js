@@ -23,6 +23,16 @@ const postSchema = new Schema({
         ref: 'circles', // 关联到圈子模型
         required: true
     },
+    tags: [{
+        name: {
+            type: String, // 标签名称
+            required: true
+        },
+        index: {
+            type: Number, // 标签在正文中的位置
+            required: true
+        }
+    }],
     likes: {
         type: Number,
         default: 0

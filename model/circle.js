@@ -15,7 +15,7 @@ const circleSchema = new Schema({
     },
     members: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'user' // 圈子成员列表
+        ref: 'users' // 圈子成员列表
     }],
     postCount: {
         type: Number,
@@ -23,7 +23,7 @@ const circleSchema = new Schema({
     },
     creator: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User', // 圈子创建者
+        ref: 'users', // 圈子创建者
         required: true
     },
     createdAt: {
@@ -38,6 +38,7 @@ const circleSchema = new Schema({
 });
 
 // 创建 Circle 模型
+circleSchema.plugin(mongoosePaginate);
 const circleModel = mongoose.model('circles', circleSchema);
 
 module.exports = circleModel;

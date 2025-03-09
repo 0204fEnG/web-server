@@ -21,7 +21,7 @@ const shortSchema = new Schema({
   },
   userId: { // 发布视频的用户 ID（关联 User 模型）
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'users',
     required: true
   },
   likes: { // 点赞数

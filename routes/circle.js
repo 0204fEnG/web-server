@@ -1,156 +1,268 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const circleModel = require('../model/circle'); // 请确保路径正确
-
 const circleRouter = express.Router();
-
-// 创建上传目录（如果不存在）
+const authMiddleware = require('../middleware/authMiddleware');
+const circleModel = require('../model/circle');
+const createUploadMiddleware = require('../utils/upload');
+const path = require('path'); // 确保引入了 path 模块
+// 动态路径：根据需要设置上传目录
 const uploadDir = path.join(__dirname, '../public/uploads/avatar/circle');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const uploadMiddleware = createUploadMiddleware(uploadDir, 'avatar');
 
-// 配置Multer存储
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // 生成唯一文件名：时间戳 + 随机字符串 + 扩展名
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `circle-${uniqueSuffix}${ext}`);
-  }
-});
-
-// 文件过滤器（只允许图片类型）
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('只允许上传图片文件'), false);
-  }
-};
-
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 限制5MB
-  }
-});
-
-// 修改后的创建圈子接口
-circleRouter.post('/create', upload.single('avatar'), async (req, res) => {
-  try {
-    // 从请求体中提取数据
-    const { name, description } = req.body;
-    const creator = req.body.creator; // 实际项目中应该从认证信息中获取
-
-    // 验证必填字段
-    if (!name || !creator) {
-      // 如果已经上传了文件，需要删除
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(400).json({ error: '缺少必填字段' });
-    }
-
-    // 检查圈子名称是否已存在
-    const existingCircle = await circleModel.findOne({ name });
-    if (existingCircle) {
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
-      }
-      return res.status(400).json({ error: '该圈子名称已存在' });
-    }
-
-    // 构建头像URL路径
-    const avatarPath = req.file 
-      ? `/uploads/avatar/circle/${req.file.filename}`
-      : '/default-circle-avatar.png'; // 设置默认头像路径
-
-    // 创建圈子实例
-    const newCircle = new circleModel({
-      name,
-      description: description || '',
-      avatar: avatarPath,
-      creator,
-      members: [creator]
-    });
-
-    // 保存到数据库
-    const savedCircle = await newCircle.save();
-
-    // 返回成功响应
-    res.status(201).json({
-      message: '圈子创建成功',
-      circle: {
-        ...savedCircle.toObject(),
-        avatarUrl: `${process.env.BASE_URL || 'http://localhost:3000'}${avatarPath}`
-      }
-    });
-
-  } catch (error) {
-    // 错误处理
-    console.error('创建圈子失败:', error);
-
-    // 删除已上传的文件（如果有）
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
-
-    const statusCode = error instanceof multer.MulterError 
-      ? 400 
-      : 500;
-
-    const errorMessage = error instanceof multer.MulterError
-      ? error.message
-      : '创建圈子失败';
-
-    res.status(statusCode).json({ 
-      error: errorMessage,
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-
-circleRouter.get('/', async (req, res) => {
+circleRouter.post(
+  '/create',
+  authMiddleware, // 添加认证中间件
+  uploadMiddleware, // 使用通用上传中间件
+  async (req, res) => {
     try {
-        // 查询条件
-        const query = req.query;
-        const { page = 1, limit = 10, name, sort } = query;
+      // 从请求体中提取数据
+      const { name, description } = req.body;
+      const creator = req.user.id; // 从认证中间件中获取用户 ID
 
-        // 构建查询对象
-        const filter = {};
-        if (name) {
-            filter.name = { $regex: name, $options: 'i' }; // 模糊搜索圈子名称
+      // 验证必填字段
+      if (!name) {
+        // 如果已经上传了文件，需要删除
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
         }
+        return res.status(400).json({ error: '圈子名称是必填项' });
+      }
 
-        // 分页和排序
-        const options = {
-            page: parseInt(page),
-            limit: parseInt(limit),
-            sort: sort ? JSON.parse(sort) : { createdAt: -1 } // 默认按创建时间降序排列
-        };
+      // 检查圈子名称是否已存在
+      const existingCircle = await circleModel.findOne({ name });
+      if (existingCircle) {
+        if (req.file) {
+          fs.unlinkSync(req.file.path);
+        }
+        return res.status(400).json({ error: '该圈子名称已存在' });
+      }
 
-        // 查询圈子列表
-        const circles = await circleModel.paginate(filter, options);
+      // 构建头像URL路径
+      const avatarPath = req.file
+        ? `/uploads/avatar/circle/${req.file.filename}`
+        : '/uploads/avatar/circle/default-circle-avatar.jpeg'; // 设置默认头像路径
 
-        // 返回成功响应
+      // 创建圈子实例
+      const newCircle = new circleModel({
+        name,
+        description: description || '',
+        avatar: avatarPath,
+        creator,
+        members: [creator], // 将创建者加入成员列表
+      });
+
+      // 保存到数据库
+      const savedCircle = await newCircle.save();
+
+      // 返回成功响应
+      res.status(201).json({
+        message: '圈子创建成功',
+        circle: {
+          ...savedCircle.toObject(),
+          avatarUrl: `${process.env.BASE_URL || 'http://localhost:3000'}${avatarPath}`,
+        },
+      });
+    } catch (error) {
+      // 错误处理
+      console.error('创建圈子失败:', error);
+
+      // 删除已上传的文件（如果有）
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+
+      const statusCode = error instanceof multer.MulterError ? 400 : 500;
+
+      const errorMessage =
+        error instanceof multer.MulterError
+          ? error.message
+          : '创建圈子失败';
+
+      res.status(statusCode).json({
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+);
+
+
+
+
+
+/**
+ * @api {get} /circles 获取圈子列表（分页）
+ * @apiName GetCircles
+ * @apiGroup Circle
+ * @apiParam {Number} [page=1] 当前页码
+ * @apiParam {Number} [limit=10] 每页数量
+ */
+circleRouter.get('/', async (req, res) => {
+  try {
+    console.log('hello');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    // 构建查询条件
+    const options = {
+      page,
+      limit: Math.min(limit, 50), // 限制最大50条/页
+      select: 'name avatar description postCount createdAt members', // 包括 members 字段
+      sort: { postCount: -1, createdAt: 1 }, // 按帖子数和创建时间排序
+      populate: {
+        path: 'creator',
+        select: 'username avatar' // 关联创建者信息
+      }
+    };
+
+    const result = await circleModel.paginate({}, options);
+
+    // 在返回结果中添加成员数量字段并排除 members 列表
+    const circlesWithMemberCount = result.docs.map(circle => {
+      const circleObject = circle.toObject();
+      delete circleObject.members; // 删除 members 字段
+
+      // 格式化 createdAt 为本地时间
+      const createdAt = new Date(circleObject.createdAt);
+      const year = createdAt.getFullYear();
+      const month = String(createdAt.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要+1
+      const day = String(createdAt.getDate()).padStart(2, '0');
+      const hours = String(createdAt.getHours()).padStart(2, '0');
+      const minutes = String(createdAt.getMinutes()).padStart(2, '0');
+      const seconds = String(createdAt.getSeconds()).padStart(2, '0');
+
+      const formattedCreatedAt = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+      return {
+        ...circleObject,
+        memberCount: circle.members.length, // 添加成员数量字段
+        createdAt: formattedCreatedAt // 使用格式化后的时间
+      };
+    });
+
+    res.json({
+      code: 200,
+      data: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        circles: circlesWithMemberCount // 使用处理后的数据
+      }
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      code: 500,
+      message: '服务器错误'
+    });
+  }
+});
+
+/**
+ * @api {get} /circles/search 搜索圈子
+ * @apiName SearchCircles
+ * @apiGroup Circle
+ * @apiParam {String} keyword 搜索关键词
+ * @apiParam {Number} [page=1] 当前页码
+ * @apiParam {Number} [limit=10] 每页数量
+ */
+circleRouter.get('/search', async (req, res) => {
+  try {
+    const { keyword } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+
+    if (!keyword) {
+      return res.status(400).json({
+        code: 400,
+        message: '请输入搜索关键词'
+      });
+    }
+
+    const options = {
+      page,
+      limit: Math.min(limit, 50),
+      select: 'name avatar description postCount createdAt members', // 包括 members 字段
+      sort: { postCount: -1 },
+      populate: {
+        path: 'creator',
+        select: 'username avatar'
+      }
+    };
+
+    // 构建搜索条件（支持名称和描述模糊搜索）
+    const query = {
+      $or: [
+        { name: new RegExp(keyword, 'i') },
+        { description: new RegExp(keyword, 'i') }
+      ]
+    };
+
+    const result = await circleModel.paginate(query, options);
+
+    // 在返回结果中添加成员数量字段并排除 members 列表
+    const circlesWithMemberCount = result.docs.map(circle => {
+      const circleObject = circle.toObject();
+      delete circleObject.members; // 删除 members 字段
+
+      // 格式化 createdAt 为本地时间
+      const createdAt = new Date(circleObject.createdAt);
+      const year = createdAt.getFullYear();
+      const month = String(createdAt.getMonth() + 1).padStart(2, '0'); // 月份从0开始，需要+1
+      const day = String(createdAt.getDate()).padStart(2, '0');
+      const hours = String(createdAt.getHours()).padStart(2, '0');
+      const minutes = String(createdAt.getMinutes()).padStart(2, '0');
+      const seconds = String(createdAt.getSeconds()).padStart(2, '0');
+
+      const formattedCreatedAt = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+      return {
+        ...circleObject,
+        memberCount: circle.members.length, // 添加成员数量字段
+        createdAt: formattedCreatedAt // 使用格式化后的时间
+      };
+    });
+
+    res.json({
+      code: 200,
+      data: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        circles: circlesWithMemberCount // 使用处理后的数据
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 500,
+      message: '服务器错误'
+    });
+  }
+});
+circleRouter.get('/hot-search', async (req, res) => {
+    try {
+        // 请求微博的热搜接口
+        const response = await fetch('https://weibo.com/ajax/side/hotSearch');
+        const result = await response.json();
+
+        // 提取所需的字段
+        const processedData = result.data.realtime.map(item => ({
+            label_name: item.label_name,
+            icon: item.icon,
+            word: item.word,
+            num: item.num,
+            rank: item.rank,
+        }));
+
+        // 返回处理后的数据
         res.status(200).json({
-            message: '获取圈子列表成功',
-            data: circles
+            status: 'success',
+            message: '获取实时热搜成功',
+            searchs: processedData,
         });
     } catch (error) {
-        // 错误处理
-        console.error('获取圈子列表失败:', error);
         res.status(500).json({
-            error: '获取圈子列表失败',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            status: 'error',
+            message: '获取实时热搜失败',
         });
     }
 });
