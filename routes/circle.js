@@ -21,8 +21,10 @@ circleRouter.post(
       // 验证必填字段
       if (!name) {
         // 如果已经上传了文件，需要删除
-        if (req.file) {
-          fs.unlinkSync(req.file.path);
+        if (req.files && req.files.length > 0) {
+          req.files.forEach(file => {
+            fs.unlinkSync(file.path);
+          });
         }
         return res.status(400).json({ error: '圈子名称是必填项' });
       }
@@ -30,16 +32,23 @@ circleRouter.post(
       // 检查圈子名称是否已存在
       const existingCircle = await circleModel.findOne({ name });
       if (existingCircle) {
-        if (req.file) {
-          fs.unlinkSync(req.file.path);
+        if (req.files && req.files.length > 0) {
+          req.files.forEach(file => {
+            fs.unlinkSync(file.path);
+          });
         }
         return res.status(400).json({ error: '该圈子名称已存在' });
       }
 
       // 构建头像URL路径
-      const avatarPath = req.file
-        ? `/uploads/avatar/circle/${req.file.filename}`
-        : '/uploads/avatar/circle/default-circle-avatar.jpeg'; // 设置默认头像路径
+      let avatarPath;
+      if (req.files && req.files.length > 0) {
+        // 假设只上传了一个文件，取第一个文件
+        const file = req.files[0];
+        avatarPath = `/uploads/avatar/circle/${file.filename}`;
+      } else {
+        avatarPath = '/uploads/avatar/circle/default-circle-avatar.jpeg'; // 设置默认头像路径
+      }
 
       // 创建圈子实例
       const newCircle = new circleModel({
@@ -55,19 +64,21 @@ circleRouter.post(
 
       // 返回成功响应
       res.status(201).json({
+        status: 'success',
         message: '圈子创建成功',
         circle: {
           ...savedCircle.toObject(),
-          avatarUrl: `${process.env.BASE_URL || 'http://localhost:3000'}${avatarPath}`,
+          avatar: `${process.env.CURRENT_URL}${avatarPath}`,
         },
       });
     } catch (error) {
       // 错误处理
-      console.error('创建圈子失败:', error);
 
       // 删除已上传的文件（如果有）
-      if (req.file) {
-        fs.unlinkSync(req.file.path);
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(file => {
+          fs.unlinkSync(file.path);
+        });
       }
 
       const statusCode = error instanceof multer.MulterError ? 400 : 500;
@@ -78,13 +89,13 @@ circleRouter.post(
           : '创建圈子失败';
 
       res.status(statusCode).json({
-        error: errorMessage,
+        status: 'error',
+        message: errorMessage,
         details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
   }
 );
-
 
 
 
@@ -98,7 +109,6 @@ circleRouter.post(
  */
 circleRouter.get('/', async (req, res) => {
   try {
-    console.log('hello');
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
@@ -140,13 +150,9 @@ circleRouter.get('/', async (req, res) => {
     });
 
     res.json({
-      code: 200,
-      data: {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        circles: circlesWithMemberCount // 使用处理后的数据
-      }
+      status: 'success',
+      message:'获取圈子成功!',
+      circles: circlesWithMemberCount // 使用处理后的数据
     });
   } catch (error) {
     console.log(error);
@@ -173,7 +179,7 @@ circleRouter.get('/search', async (req, res) => {
 
     if (!keyword) {
       return res.status(400).json({
-        code: 400,
+        status: 'error',
         message: '请输入搜索关键词'
       });
     }
@@ -223,18 +229,14 @@ circleRouter.get('/search', async (req, res) => {
     });
 
     res.json({
-      code: 200,
-      data: {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        circles: circlesWithMemberCount // 使用处理后的数据
-      }
+      status: 'success',
+      message:'搜索圈子成功!',
+      searchCircles: circlesWithMemberCount // 使用处理后的数据
     });
   } catch (error) {
     res.status(500).json({
-      code: 500,
-      message: '服务器错误'
+      status:'error',
+      message: '服务器错误!'
     });
   }
 });

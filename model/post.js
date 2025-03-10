@@ -13,12 +13,12 @@ const postSchema = new Schema({
     images: [{
         type: String // 图片 URL
     }],
-    authorId: {
+    author: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'users', // 关联到用户模型
         required: true
     },
-    circleId: {
+    circle: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'circles', // 关联到圈子模型
         required: true

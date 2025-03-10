@@ -19,7 +19,7 @@ const shortSchema = new Schema({
     type: String,
     default: ''
   },
-  userId: { // 发布视频的用户 ID（关联 User 模型）
+  user: { // 发布视频的用户 ID（关联 User 模型）
     type: Schema.Types.ObjectId,
     ref: 'users',
     required: true
