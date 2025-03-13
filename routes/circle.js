@@ -7,7 +7,7 @@ const path = require('path'); // 确保引入了 path 模块
 // 动态路径：根据需要设置上传目录
 const uploadDir = path.join(__dirname, '../public/uploads/avatar/circle');
 const uploadMiddleware = createUploadMiddleware(uploadDir, 'avatar');
-
+const CURRENT_URL = process.env.CURRENT_URL
 circleRouter.post(
   '/create',
   authMiddleware, // 添加认证中间件
@@ -173,7 +173,7 @@ circleRouter.get('/', async (req, res) => {
  */
 circleRouter.get('/search', async (req, res) => {
   try {
-    const { keyword } = req.query;
+    const { keyword, sortType = 'postCount' } = req.query; // 添加 sortType 参数，默认值为 'postCount'
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
@@ -184,16 +184,29 @@ circleRouter.get('/search', async (req, res) => {
       });
     }
 
+    // 构建分页和排序选项
     const options = {
       page,
       limit: Math.min(limit, 50),
       select: 'name avatar description postCount createdAt members', // 包括 members 字段
-      sort: { postCount: -1 },
+      sort: {}, // 动态设置排序
       populate: {
         path: 'creator',
         select: 'username avatar'
       }
     };
+
+    // 根据 sortType 设置排序规则
+    if (sortType === 'postCount') {
+      options.sort = { postCount: -1 }; // 按热度（帖子数量）降序
+    } else if (sortType === 'createdAt') {
+      options.sort = { createdAt: -1 }; // 按时间降序
+    } else {
+      return res.status(400).json({
+        status: 'error',
+        message: '无效的排序类型'
+      });
+    }
 
     // 构建搜索条件（支持名称和描述模糊搜索）
     const query = {
@@ -220,7 +233,8 @@ circleRouter.get('/search', async (req, res) => {
       const seconds = String(createdAt.getSeconds()).padStart(2, '0');
 
       const formattedCreatedAt = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-
+      circleObject.avatar = CURRENT_URL + circleObject.avatar;
+      circleObject.creator.avatar = CURRENT_URL + circleObject.creator.avatar
       return {
         ...circleObject,
         memberCount: circle.members.length, // 添加成员数量字段
@@ -230,12 +244,12 @@ circleRouter.get('/search', async (req, res) => {
 
     res.json({
       status: 'success',
-      message:'搜索圈子成功!',
+      message: '搜索圈子成功!',
       searchCircles: circlesWithMemberCount // 使用处理后的数据
     });
   } catch (error) {
     res.status(500).json({
-      status:'error',
+      status: 'error',
       message: '服务器错误!'
     });
   }

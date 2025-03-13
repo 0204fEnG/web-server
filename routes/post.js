@@ -178,6 +178,95 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/search', async (req, res) => {
+  try {
+    // 从查询参数中获取分页信息
+    const page = parseInt(req.query.page) || 1; // 当前页码，默认为1
+    const limit = parseInt(req.query.limit) || 10; // 每页条数，默认为10
+
+    // 从查询参数中获取排序信息
+    const sortBy = req.query.sortBy || 'replies'; // 排序字段，默认为 replies
+    const sortOrder = parseInt(req.query.sortOrder) || -1; // 排序顺序，默认为降序
+
+    // 验证排序字段和顺序
+    const validSortFields = ['replies', 'createdAt'];
+    const validSortOrders = [1, -1];
+
+    if (!validSortFields.includes(sortBy)) {
+      return res.status(400).json({ success: false, message: '无效的排序字段' });
+    }
+    if (!validSortOrders.includes(sortOrder)) {
+      return res.status(400).json({ success: false, message: '无效的排序顺序' });
+    }
+
+    // 从查询参数中获取搜索关键词
+    const keyword = req.query.keyword || '';
+
+    // 计算跳过的文档数量
+    const skip = (page - 1) * limit;
+
+    // 动态排序规则
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder;
+
+    // 构建查询条件
+    const queryConditions = {
+      $or: [
+        { title: { $regex: keyword, $options: 'i' } }, // 标题中包含关键词
+        { content: { $regex: keyword, $options: 'i' } }, // 内容中包含关键词
+        { 'tags.name': { $regex: keyword, $options: 'i' } } // 标签中包含关键词
+      ]
+    };
+
+    // 查询帖子列表
+    const posts = await Post.find(queryConditions)
+      .sort(sortOptions) // 动态排序
+      .skip(skip) // 跳过前面的文档
+      .limit(limit) // 限制返回的文档数量
+      .populate('author', 'username avatar') // 关联用户信息
+      .populate('circle', 'name avatar') // 关联圈子信息，添加 avatar 字段
+      .select('-__v'); // 排除 __v 字段
+
+    // 转换创建时间为本地时间格式，并调整字段名称和路径
+    const formattedPosts = posts.map(post => {
+      post = post.toObject();
+      const localDate = new Date(post.createdAt).toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false // 使用24小时制
+      }).replace(/\//g, '-'); // 将斜杠替换为短横线
+
+      // 拼接图片路径
+      if (post.images) {
+        post.images = post.images.map(image => CURRENT_URL + image);
+      }
+
+      // 拼接用户头像和圈子头像路径
+      post.author.avatar = CURRENT_URL + post.author.avatar;
+      post.circle.avatar = CURRENT_URL + post.circle.avatar;
+
+      return {
+        ...post, // 将 Mongoose 文档转换为普通对象
+        createdAt: localDate, // 覆盖 createdAt 字段
+      };
+    });
+
+    // 返回结果
+    res.status(200).json({
+      status: 'success',
+      message: '帖子列表获取成功',
+      searchPosts: formattedPosts, // 返回格式化后的帖子数据
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: '服务器内部错误' });
+  }
+});
+
+
 // 查询特定 postId 的帖子
 router.get('/:postId', async (req, res) => {
   try {
