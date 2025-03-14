@@ -57,7 +57,6 @@ userRouter.get('/search', async (req, res) => {
           followedCircles: 0,
           followedUsers: 0,
           followers: 0,
-          posts: 0,
           shortVideos: 0,
           favoritePosts: 0,
           favoriteShortVideos: 0,
