@@ -10,7 +10,7 @@ require("dotenv").config();
 const path = require('path');
 const CURRENT_URL = process.env.CURRENT_URL
 // 动态路径：根据需要设置上传目录
-const uploadDir = path.join(__dirname, '../public/uploads/post');
+const uploadDir = path.join(__dirname, '../public/uploads/posts');
 const uploadMiddleware = createUploadMiddleware(uploadDir, 'image', 9); // 支持最多上传9张图片
 
 
