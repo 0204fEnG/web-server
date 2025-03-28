@@ -245,7 +245,7 @@ circleRouter.get('/search', async (req, res) => {
     res.json({
       status: 'success',
       message: '搜索圈子成功!',
-      searchCircles: circlesWithMemberCount // 使用处理后的数据
+      circles: circlesWithMemberCount // 使用处理后的数据
     });
   } catch (error) {
     res.status(500).json({

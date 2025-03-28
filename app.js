@@ -30,7 +30,7 @@ app.use('/api/post',postRouter)
 app.use('/api/user',userRouter);
 app.use('/api/circle', circleRouter);
 app.use('/api/reply',replyRouter)
-// app.use('/api/shorts',shortsRouter );
+app.use('/api/short',shortRouter );
 
 // // 错误处理中间件
 // app.use((err, req, res, next) => {

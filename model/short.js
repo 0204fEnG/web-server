@@ -24,6 +24,21 @@ const shortSchema = new Schema({
     ref: 'users',
     required: true
   },
+  tags: [{
+    name: {
+      type: String,
+      required: true
+    },
+    index: {
+      type: Number,
+      required: true
+    }
+  }],
+  circle: {
+      type: Schema.Types.ObjectId,
+      ref: 'circles', // 关联到圈子模型
+      required: true
+  },
   likes: { // 点赞数
     type: Number,
     default: 0
