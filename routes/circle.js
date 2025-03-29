@@ -4,6 +4,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const circleModel = require('../model/circle');
 const createUploadMiddleware = require('../utils/upload');
 const path = require('path'); // 确保引入了 path 模块
+const mongoose= require('mongoose');
 // 动态路径：根据需要设置上传目录
 const uploadDir = path.join(__dirname, '../public/uploads/avatar/circle');
 const uploadMiddleware = createUploadMiddleware(uploadDir, 'avatar');
@@ -281,5 +282,66 @@ circleRouter.get('/hot-search', async (req, res) => {
             message: '获取实时热搜失败',
         });
     }
+});
+
+
+circleRouter.get('/:circleId', async (req, res) => {
+  try {
+    const { circleId } = req.params;
+
+    // 参数校验
+    if (!mongoose.isValidObjectId(circleId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '无效的圈子ID',
+        code: 'INVALID_ID'
+      });
+    }
+
+    // 查询数据库（合并基础信息和成员数量统计）
+    const [circle, memberCount] = await Promise.all([
+      circleModel.findById(circleId)
+        .populate('creator', 'username avatar')
+        .lean(),
+      circleModel.findById(circleId)
+        .select('members')
+        .then(c => c?.members.length || 0)
+    ]);
+
+    if (!circle) {
+      return res.status(404).json({
+        status: 'error',
+        message: '圈子不存在',
+        code: 'NOT_FOUND'
+      });
+    }
+
+    // 构建响应数据
+    res.json({
+      status: 'success',
+      data: {
+        id: circle._id,
+        name: circle.name,
+        avatar: `${CURRENT_URL}${circle.avatar || '/default-circle.png'}`,
+        description: circle.description || '',
+        subscriptions: memberCount,
+        posts: circle.postCount || 0,
+        createdAt: circle.createdAt,
+        creator: {
+          id: circle.creator?._id,
+          name: circle.creator?.username || '未知用户',
+          avatar: `${CURRENT_URL}${circle.creator?.avatar || '/default-avatar.png'}`
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('获取圈子详情失败:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '服务器内部错误',
+      code: 'SERVER_ERROR'
+    });
+  }
 });
 module.exports = circleRouter;
